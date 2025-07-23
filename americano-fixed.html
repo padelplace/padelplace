@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Americano Turnier</title>
+</head>
+<body>
+    <h1>Americano Turnier System</h1>
+    <p>Verbindung zu Supabase wird hergestellt...</p>
+    
+    <div id="status"></div>
+    
+    <script type="module">
+        // Supabase Setup
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+        
+        const SUPABASE_URL = 'https://kuentjuxawjrhwurthul.supabase.co'
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1ZW50anV4YXdqcmh3dXJ0aHVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI2Mjk4NzMsImV4cCI6MjA0ODIwNTg3M30.EecS-45ec-9873-7023bbade8f8'
+        
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        
+        // Status anzeigen
+        document.getElementById('status').innerHTML = '<p style="color: green;">✓ Mit Supabase verbunden!</p>';
+        
+        // Tournament ID aus URL
+        const params = new URLSearchParams(window.location.search);
+        const tournamentId = params.get('id');
+        
+        if (tournamentId) {
+            document.getElementById('status').innerHTML += `<p>Lade Turnier ${tournamentId}...</p>`;
+            
+            // Turnier laden
+            const { data, error } = await supabase
+                .from('tournaments')
+                .select('*')
+                .eq('id', tournamentId)
+                .single();
+                
+            if (data) {
+                document.getElementById('status').innerHTML += `<p style="color: green;">✓ Turnier geladen: ${data.name}</p>`;
+                document.getElementById('status').innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } else {
+                document.getElementById('status').innerHTML += `<p style="color: red;">Fehler: ${error?.message}</p>`;
+            }
+        } else {
+            document.getElementById('status').innerHTML += '<p>Kein Turnier ausgewählt. Gehe zurück zu <a href="tournaments.html">Turniere</a></p>';
+        }
+        
+        // Link zum Original Americano Tool (später integrieren)
+        document.getElementById('status').innerHTML += '<hr><p>Das vollständige Americano-System wird hier integriert...</p>';
+    </script>
+</body>
+</html>

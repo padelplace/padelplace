@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Padelplace - Turniere</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: #0066CC;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .tournament-card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #0066CC;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover {
+            background: #0052A3;
+        }
+        .create-form {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Padelplace Turniere</h1>
+        <p>Erstelle und verwalte Americano-Turniere</p>
+    </div>
+
+    <div class="create-form">
+        <h2>Neues Turnier erstellen</h2>
+        <form id="createTournamentForm">
+            <div class="form-group">
+                <label>Turniername:</label>
+                <input type="text" id="name" required>
+            </div>
+            <div class="form-group">
+                <label>Datum:</label>
+                <input type="date" id="date" required>
+            </div>
+            <div class="form-group">
+                <label>Startzeit:</label>
+                <input type="time" id="startTime" value="19:00" required>
+            </div>
+            <div class="form-group">
+                <label>Anzahl Courts:</label>
+                <input type="number" id="courts" min="1" max="10" value="3" required>
+            </div>
+            <div class="form-group">
+                <label>Max. Spieler:</label>
+                <input type="number" id="maxPlayers" min="4" max="50" value="16" required>
+            </div>
+            <button type="submit" class="btn">Turnier erstellen</button>
+        </form>
+    </div>
+
+    <div id="tournamentsList">
+        <h2>Aktuelle Turniere</h2>
+        <div id="tournamentsContainer">
+            <!-- Turniere werden hier geladen -->
+        </div>
+    </div>
+
+    <script type="module">
+        // Supabase Setup
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+        
+        // HIER DEINE WERTE EINSETZEN!
+        const SUPABASE_URL = 'https://kuentjuxawjrhwurthul.supabase.co'
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1ZW50anV4YXdqcmh3dXJ0aHVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI2Mjk4NzMsImV4cCI6MjA0ODIwNTg3M30.EecS-45ec-9873-7023bbade8f8'
+        
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        
+        // Check if user is logged in
+        async function checkUser() {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                // Temporär: Automatisch einen Test-User erstellen
+                const { data, error } = await supabase.auth.signUp({
+                    email: 'test@padelplace.org',
+                    password: 'test123456'
+                })
+                if (error && error.message.includes('already registered')) {
+                    await supabase.auth.signInWithPassword({
+                        email: 'test@padelplace.org',
+                        password: 'test123456'
+                    })
+                }
+            }
+        }
+        
+        // Load tournaments
+        async function loadTournaments() {
+            const { data: tournaments, error } = await supabase
+                .from('tournaments')
+                .select('*')
+                .order('created_at', { ascending: false })
+            
+            const container = document.getElementById('tournamentsContainer')
+            
+            if (tournaments && tournaments.length > 0) {
+                container.innerHTML = tournaments.map(t => `
+                    <div class="tournament-card">
+                        <h3>${t.name}</h3>
+                        <p>📅 ${new Date(t.date).toLocaleDateString('de-DE')} um ${t.start_time}</p>
+                        <p>🏟️ ${t.courts} Courts | 👥 Max. ${t.max_players} Spieler</p>
+                        <p>Code: <strong>${t.code || 'Wird generiert...'}</strong></p>
+                        <a href="americano.html?id=${t.id}" class="btn">Turnier öffnen</a>
+                    </div>
+                `).join('')
+            } else {
+                container.innerHTML = '<p>Noch keine Turniere vorhanden.</p>'
+            }
+        }
+        
+        // Create tournament
+        document.getElementById('createTournamentForm').addEventListener('submit', async (e) => {
+            e.preventDefault()
+            
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                alert('Bitte erst anmelden!')
+                return
+            }
+            
+            // Generate 6-character code
+            const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+            
+            const tournamentData = {
+                name: document.getElementById('name').value,
+                sport: 'padel',
+                date: document.getElementById('date').value,
+                start_time: document.getElementById('startTime').value,
+                courts: parseInt(document.getElementById('courts').value),
+                max_players: parseInt(document.getElementById('maxPlayers').value),
+                game_mode: 'points',
+                game_duration: 21,
+                code: code,
+                organizer_id: user.id,
+                status: 'upcoming'
+            }
+            
+            const { data, error } = await supabase
+                .from('tournaments')
+                .insert([tournamentData])
+                .select()
+                .single()
+            
+            if (error) {
+                alert('Fehler: ' + error.message)
+            } else {
+                alert(`Turnier erstellt! Code: ${code}`)
+                window.location.href = `americano.html?id=${data.id}`
+            }
+        })
+        
+        // Initialize
+        checkUser().then(() => {
+            loadTournaments()
+        })
+        
+        // Set today's date as default
+        document.getElementById('date').valueAsDate = new Date()
+    </script>
+</body>
+</html>
